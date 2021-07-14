@@ -5,25 +5,33 @@ import re
 from collections.abc import Iterable
 from task import Task
 import json
+import datetime
+from dateutil import parser
 
 class TimingService:
     project_to_jira_mapping: Dict = None
     re_jira_code = "\[([A-Z]+-\d+)\]\s?" # Used for search, extraction of code, and removal of codes
     recorded_prefix = "RECORDED"
     base_url = url = "https://web.timingapp.com/api/v1"
+    ignore_window_in_secs = 300 # Set this to be the window in which, if any changes have been made, skip all updates
 
     def __init__(self, authkey: str) -> None:
         self._authkey = authkey
 
     # Get all timing tasks that have Jira information and are not reported
+    # Returns empty list if any edits within cut-off window
     def get_outstanding_jira_tasks(self) -> List[Task]:
-        return self._convert_tasks_to_worklogs(
+        tasks = self._convert_tasks_to_worklogs(
             self.filter_unreported(
                 self.filter_jira_tasks(
                     self.get_all_timing_tasks()
                 )
             )
         )
+        # If edits within cutoff window, return empty list
+        if (self.edits_exist_in_window(tasks)):
+            return []
+        return tasks
 
     # Gets all tasks from timing app
     def get_all_timing_tasks(self) -> Iterable: 
@@ -127,6 +135,18 @@ class TimingService:
                 filtered_inputs.append(task)
                 continue
         return filtered_inputs
+
+    # Were any tasks changed in the last 5 minutes
+    def edits_exist_in_window(self, input:Iterable) -> bool:
+        # As modification time is not available in API, have to ignore and just return False
+        return False
+        # now = datetime.now()
+        # for task in input:
+        #     start_time = parser.parse(task["start_date"]) #todo: handle exceptions, and use mofified time... oh, that does not exist :(
+        #     seconds_ago = (now-start_time).total_seconds()
+        #     if(seconds_ago < self.ignore_window_in_secs):
+        #         return True
+        # return False
 
     # Extract the Jira task, duration, datetime start and comment for each task
     def _convert_tasks_to_worklogs(self, input:Iterable) -> List[Task]:
