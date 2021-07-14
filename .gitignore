@@ -20,3 +20,5 @@ requests*
 setuptools*
 urllib3*
 zipp*
+.vscode
+package/
