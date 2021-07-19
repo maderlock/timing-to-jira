@@ -27,9 +27,12 @@ class JiraService:
     def push_timelogs_from_tasks(self, tasks:List[Task]) -> List:
         successes = []
         for task in tasks:
-            result = self._push_timelog_from_task(task)
-            if (result != False):
+            timelogResult = self._push_timelog_from_task(task)
+            # Take timelog result as the important result of whether to mark as recorded
+            if (timelogResult != False):
                 successes.append(task)
+            if (task["as_comment"]):
+                self._push_comment_from_task(task)
         return successes
 
     # Push task details as worklog
@@ -45,6 +48,17 @@ class JiraService:
                 task["comment"],
                 datetime.fromisoformat(task["start"]),
                 self._user_id
+            )
+            return True
+        except Exception as exc:
+            return False
+    
+    # Push task details as comment
+    def _push_comment_from_task(self, task:Task) -> bool:
+        try:
+            self._jira_conn().add_comment(
+                task["jira_code"],
+                task["comment"]
             )
             return True
         except Exception as exc:

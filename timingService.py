@@ -11,6 +11,7 @@ from dateutil import parser
 class TimingService:
     project_to_jira_mapping: Dict = None
     re_jira_code = "\[([A-Z]+-\d+)\]\s?" # Used for search, extraction of code, and removal of codes
+    re_comment = "\[COMMENT\]\s?" # Used for spotting comments
     recorded_prefix = "RECORDED"
     base_url = url = "https://web.timingapp.com/api/v1"
     ignore_window_in_secs = 300 # Set this to be the window in which, if any changes have been made, skip all updates
@@ -24,7 +25,9 @@ class TimingService:
         tasks = self._convert_tasks_to_worklogs(
             self.filter_unreported(
                 self.filter_jira_tasks(
-                    self.get_all_timing_tasks()
+                    self.mark_for_comment(
+                        self.get_all_timing_tasks()
+                    )
                 )
             )
         )
@@ -108,7 +111,6 @@ class TimingService:
     def filter_jira_tasks(self, input:Iterable) -> Iterable:
         filtered_inputs = []
         for task in input:
-            task["original_title"] = task["title"]
             # Try to find jira code in title first
             if (not task["title"] is None):
                 result = re.search(self.re_jira_code, task["title"])
@@ -135,6 +137,24 @@ class TimingService:
                 filtered_inputs.append(task)
                 continue
         return filtered_inputs
+
+    # Any task with [COMMENT] in the title should be marked for adding as_comment, and have that note removed from the title
+    def mark_for_comment(self, input:Iterable) -> Iterable:
+        adjusted_inputs = []
+
+        for task in input:
+            newtask = task
+            newtask["original_title"] = task["title"]
+            newtask["as_comment"] = False
+            if (not task["title"] is None):
+                result = re.search(self.re_comment, task["title"])
+                if result:
+                    # Mark that this should be added as a comment as well as a time log
+                    newtask["as_comment"] = True
+                    # Remove from the title
+                    newtask["title"] = re.sub(rf"{self.re_comment}", "", task["title"])
+            adjusted_inputs.append(newtask)
+        return adjusted_inputs
 
     # Were any tasks changed in the last 5 minutes
     def edits_exist_in_window(self, input:Iterable) -> bool:
@@ -166,7 +186,8 @@ class TimingService:
             task_input["original_title"],
             task_input["start_date"],
             task_input["duration"],
-            task_input["notes"] if not (task_input["notes"] is None or task_input["notes"] == "") else task_input["title"]
+            task_input["notes"] if not (task_input["notes"] is None or task_input["notes"] == "") else task_input["title"],
+            task_input["as_comment"]
         )
 
     # Change timing tasks so that they are marked as recorded
