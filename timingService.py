@@ -180,13 +180,19 @@ class TimingService:
     # TODO: Use information from projects. Also need this when filtering
     # Logic: TODO
     def _convert_task_to_worklog(self, task_input) -> Task:
+        # Set worklog comment to notes, or title, or blank in that order
+        notes = ""
+        if task_input["notes"] is not None:
+            notes = task_input["notes"]
+        elif task_input["title"] is not None:
+            notes = task_input["title"]
         return Task(
             task_input["jira_code"],
             task_input["self"],
             task_input["original_title"],
             task_input["start_date"],
             task_input["duration"],
-            task_input["notes"] if not (task_input["notes"] is None or task_input["notes"] == "") else task_input["title"],
+            notes,
             task_input["as_comment"]
         )
 
