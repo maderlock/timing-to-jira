@@ -198,8 +198,12 @@ class TimingService:
     # Mark a timing task as recorded so that it is not picked up again in the future
     def _record_task(self, task:Task) -> None:
         path = task["timing_code"] # This includes the prefix of /time-entries/ and the ID
+        if task["title"] is not None:
+            title = " - " + task["title"]
+        else:
+            title = ""
         body = {
-            "title": self.recorded_prefix + " - " + task["title"]
+            "title": self.recorded_prefix + title
         }
         res = self._timing_put(path, body)
         # TODO: Confirm if worked by whether title contains RECORDED
